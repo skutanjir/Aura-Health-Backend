@@ -157,13 +157,59 @@ Records of interactions with the AI assistant.
    REDIS_URL="redis://localhost:6379"
    
    # Authentication
-   JWT_SECRET="your_secure_jwt_secret_key"
-   JWT_EXPIRES_IN="7d"
+   JWT_ACCESS_SECRET="your_secure_jwt_access_secret_key"
+   JWT_REFRESH_SECRET="your_secure_jwt_refresh_secret_key"
+   JWT_ACCESS_EXPIRES="15m"
+   JWT_REFRESH_EXPIRES="7d"
    
-   # Supabase Storage (Optional)
+   # Supabase Storage
    SUPABASE_URL="your_supabase_project_url"
-   SUPABASE_KEY="your_supabase_api_key"
+   SUPABASE_SERVICE_KEY="your_supabase_service_role_key"
+   SUPABASE_BUCKET_AVATARS="avatars"
+   SUPABASE_BUCKET_POSTS="posts"
+
+   # AI Provider Configuration
+   AI_PROVIDER=auto
+   AI_GEMINI_MODEL=gemini-flash-lite-latest
+   AI_GEMINI_KEY_1="your_gemini_api_key_1"
+   # You can add up to 10 keys (AI_GEMINI_KEY_2, etc.) for rotation
    ```
+
+### Obtaining API Keys
+
+To use the AI Chatbot features, you must obtain a Gemini API Key from Google AI Studio:
+
+1. Visit Google AI Studio at: https://aistudio.google.com/app/apikey
+2. Sign in with your Google account.
+3. Click "Create API Key" or use an existing project.
+4. Copy the generated API key.
+5. Paste the key into your `.env` file as `AI_GEMINI_KEY_1`.
+
+Note: The system supports key rotation. If you anticipate heavy usage, you can generate multiple API keys from different Google accounts and add them as `AI_GEMINI_KEY_2`, `AI_GEMINI_KEY_3`, up to `AI_GEMINI_KEY_10`. The system will automatically rotate through them when necessary.
+
+#### Alternative AI Providers (Optional fallback)
+
+If you prefer to use alternative AI providers or wish to set up a fallback cascade in case Gemini fails, you can obtain API keys from the following platforms:
+
+**Groq (Blazing Fast Inference)**
+1. Visit GroqCloud at: https://console.groq.com/keys
+2. Sign in and create an API key.
+3. Add the key to your `.env` file as `AI_GROQ_KEY`.
+4. Define your preferred model, e.g., `AI_GROQ_MODEL=llama-3.1-8b-instant`.
+
+**OpenRouter (Access to various models)**
+1. Visit OpenRouter at: https://openrouter.ai/keys
+2. Sign in and create an API key.
+3. Add the key to your `.env` file as `AI_OPENROUTER_KEY`.
+4. Define your preferred model, e.g., `AI_OPENROUTER_MODEL=meta-llama/llama-3-8b-instruct`.
+
+**Hugging Face (Open Source models)**
+1. Visit Hugging Face at: https://huggingface.co/settings/tokens
+2. Create an Access Token (Fine-grained or Write permission based on inference needs).
+3. Add the token to your `.env` file as `AI_HF_KEY`.
+4. Define your preferred model hub ID, e.g., `AI_HF_MODEL=mistralai/Mistral-7B-Instruct-v0.2`.
+
+The system's `AI_PROVIDER=auto` configuration is designed to prioritize Gemini first (if configured), then cascade to OpenRouter, Groq, and Hugging Face sequentially if the preceding provider fails.
 
 3. **Database Setup**
    Push the Prisma schema to your relational database:
