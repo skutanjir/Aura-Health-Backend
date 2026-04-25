@@ -25,7 +25,11 @@ export const chatService = {
       throw err;
     }
 
-    const rawResponse = await askAI(safeMessage);
+    // Ambil histori chat pengguna (10 chat terakhir untuk jadi memori obrolan)
+    const historyData = await chatRepository.findByUserId(userId, { page: 1, limit: 10 });
+    const history = historyData.items.reverse(); // Urutkan dari yang terlama ke terbaru
+
+    const rawResponse = await askAI(safeMessage, history);
     const response = validateOutput(rawResponse);
 
     const record = await chatRepository.create({ userId, message: safeMessage, response });
@@ -37,9 +41,8 @@ export const chatService = {
   },
 
   async getHistory(userId, { page = 1, limit = 20 } = {}) {
-    const redis = getRedis();
     const cacheKey = `${REDIS_KEYS.chatHistory(userId)}:${page}`;
-    const cached = await redis.get(cacheKey);
+    const cached = await safeRedisGet(cacheKey);
     if (cached) return JSON.parse(cached);
 
     const result = await chatRepository.findByUserId(userId, { page, limit });
@@ -48,14 +51,17 @@ export const chatService = {
       meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) },
     };
 
-    await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(data));
+    await safeRedisSetex(cacheKey, CACHE_TTL, JSON.stringify(data));
     return data;
   },
 
   async clearHistory(userId) {
     await chatRepository.deleteByUserId(userId);
-    const redis = getRedis();
-    const keys = await redis.keys(`${REDIS_KEYS.chatHistory(userId)}*`);
-    if (keys.length) await redis.del(...keys);
+    if (isRedisAvailable()) {
+      try {
+        const keys = await getRedis().keys(`${REDIS_KEYS.chatHistory(userId)}*`);
+        if (keys.length) await getRedis().del(...keys);
+      } catch {}
+    }
   },
 };
