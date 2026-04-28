@@ -1,14 +1,15 @@
 import { chatRepository } from '../repositories/chat.repository.js';
-import { askAI, filterInput, validateOutput } from '../config/aiProvider.js';
+import { askAI, filterInput, validateOutput, isHospitalQuery, buildHospitalContext } from '../config/aiProvider.js';
 import { safeRedisGet, safeRedisSetex, safeRedisDel, getRedis, isRedisAvailable, REDIS_KEYS } from '../config/redis.js';
 
-const CACHE_TTL = 60 * 60; // 1 hour for chat history cache
+const CACHE_TTL = 60 * 60;
 
-const OFF_TOPIC_REPLY = 'Maaf, saya hanya dapat membantu pertanyaan seputar TBC dan kesehatan paru-paru.';
-const INJECTION_REPLY = 'Permintaan Anda tidak dapat diproses. Saya hanya menjawab pertanyaan seputar TBC.';
+const OFF_TOPIC_REPLY = 'Hehe, itu di luar bidang aku nih 😅 Aku lebih jago soal TBC dan kesehatan paru-paru. Ada yang mau ditanyain soal itu?';
+const INJECTION_REPLY = 'Wah, permintaan ini nggak bisa aku proses ya 🙏 Aku cuma bisa bantu seputar TBC dan kesehatan paru-paru.';
+const NO_LOCATION_HOSPITAL_REPLY = '🏥 Untuk cari rumah sakit atau klinik terdekat, aku butuh akses lokasi kamu dulu ya! Aktifkan GPS di aplikasi, lalu tanya lagi — aku siap bantu cariin yang paling dekat. Atau langsung cek di: https://www.google.com/maps/search/rumah+sakit+terdekat 😊';
 
 export const chatService = {
-  async chat(userId, rawMessage) {
+  async chat(userId, rawMessage, location = null) {
     let safeMessage;
 
     try {
@@ -25,16 +26,21 @@ export const chatService = {
       throw err;
     }
 
-    // Ambil histori chat pengguna (10 chat terakhir untuk jadi memori obrolan)
-    const historyData = await chatRepository.findByUserId(userId, { page: 1, limit: 10 });
-    const history = historyData.items.reverse(); // Urutkan dari yang terlama ke terbaru
+    if (isHospitalQuery(safeMessage) && !location) {
+      await chatRepository.create({ userId, message: safeMessage, response: NO_LOCATION_HOSPITAL_REPLY });
+      return { response: NO_LOCATION_HOSPITAL_REPLY, filtered: false };
+    }
 
-    const rawResponse = await askAI(safeMessage, history);
+    const messageForAI = location ? buildHospitalContext(safeMessage, location) : safeMessage;
+
+    const historyData = await chatRepository.findByUserId(userId, { page: 1, limit: 10 });
+    const history = historyData.items.reverse();
+
+    const rawResponse = await askAI(messageForAI, history);
     const response = validateOutput(rawResponse);
 
     const record = await chatRepository.create({ userId, message: safeMessage, response });
 
-    // Invalidate user chat cache
     await safeRedisDel(REDIS_KEYS.chatHistory(userId));
 
     return { response, id: record.id, filtered: false };

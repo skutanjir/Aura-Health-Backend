@@ -4,8 +4,9 @@ import { successResponse, paginatedResponse } from '../utils/response.js';
 export const chatController = {
   async chat(req, res, next) {
     try {
-      const { message } = req.body;
-      const result = await chatService.chat(req.user.id, message);
+      const { message, latitude, longitude } = req.body;
+      const location = latitude && longitude ? { latitude, longitude } : null;
+      const result = await chatService.chat(req.user.id, message, location);
       return successResponse(res, 'Pesan berhasil diproses', result);
     } catch (err) {
       next(err);
