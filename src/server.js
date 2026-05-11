@@ -5,6 +5,8 @@ import { connectDB, disconnectDB } from './config/db.js';
 import { connectRedis, getRedis } from './config/redis.js';
 import { logger } from './utils/logger.js';
 import { mkdirSync } from 'fs';
+import { Server } from 'socket.io';
+import { startCronJobs } from './services/cron.service.js';
 
 // Ensure logs directory exists
 try { mkdirSync('logs', { recursive: true }); } catch {}
@@ -23,10 +25,24 @@ async function bootstrap() {
       logger.warn(`Redis unavailable — running without cache/session features: ${redisErr.message}`);
     }
 
-    const port = parseInt(env.PORT, 10);
+        const port = parseInt(env.PORT, 10);
     const server = app.listen(port, () => {
       logger.info(`🚀 Aura Health API running on port ${port} [${env.NODE_ENV}]`);
     });
+
+    // Initialize Socket.io
+    const io = new Server(server, {
+      cors: { origin: '*' }
+    });
+    app.set('io', io); // Make it available to controllers
+    
+    io.on('connection', (socket) => {
+      logger.info('Client connected to realtime socket');
+      socket.on('disconnect', () => {});
+    });
+
+    // Start Cron Jobs
+    startCronJobs();
 
     // Graceful shutdown
     const shutdown = async (signal) => {

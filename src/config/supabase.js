@@ -5,19 +5,28 @@ export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY,
   auth: { persistSession: false },
 });
 
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+const ALLOWED_MIME = ['image/jpeg'];
+const MAX_SIZE_BYTES = 1024 * 1024; // 1MB
 
 export function validateImageFile(mimetype, size) {
   if (!ALLOWED_MIME.includes(mimetype)) {
-    throw new Error('Hanya file JPEG, PNG, dan WebP yang diizinkan');
+    throw new Error('Hanya file JPEG yang diizinkan');
   }
   if (size > MAX_SIZE_BYTES) {
-    throw new Error('Ukuran file maksimal 2MB');
+    throw new Error('Ukuran file maksimal 1 MB');
   }
 }
 
 export async function uploadToSupabase(bucket, path, buffer, mimetype) {
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (listError) throw new Error(`Gagal memeriksa bucket: ${listError.message}`);
+
+  const exists = buckets.some((b) => b.name === bucket);
+  if (!exists) {
+    const { error: createError } = await supabase.storage.createBucket(bucket, { public: true });
+    if (createError) throw new Error(`Gagal membuat bucket: ${createError.message}`);
+  }
+
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(path, buffer, {

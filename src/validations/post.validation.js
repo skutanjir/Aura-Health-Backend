@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 export const createPostSchema = z.object({
   content: z.string().min(1, 'Konten tidak boleh kosong').max(2000, 'Konten maksimal 2000 karakter'),
+  isAnonymous: z.union([z.boolean(), z.string()]).optional().transform((value) => value === true || value === 'true'),
+});
+
+export const updatePostSchema = z.object({
+  content: z.string().min(1, 'Konten tidak boleh kosong').max(2000, 'Konten maksimal 2000 karakter'),
 });
 
 export const createCommentSchema = z.object({

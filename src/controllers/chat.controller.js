@@ -9,13 +9,13 @@ export const chatController = {
       const result = await chatService.chat(req.user.id, message, location);
       return successResponse(res, 'Pesan berhasil diproses', result);
     } catch (err) {
-      next(err);
+      return res.status(500).json({ success: false, message: 'Error' });
     }
   },
 
   async getHistory(req, res, next) {
     try {
-      const { page = 1, limit = 20 } = req.query;
+      const { page = 1, limit = 1000 } = req.query;
       const result = await chatService.getHistory(req.user.id, {
         page: parseInt(page),
         limit: parseInt(limit),

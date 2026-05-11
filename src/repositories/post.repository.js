@@ -2,7 +2,7 @@ import { prisma } from '../config/db.js';
 
 export const postRepository = {
   async findMany({ page = 1, limit = 10, userId }) {
-    const where = userId ? { userId } : {};
+    const where = {};
     const [items, total] = await prisma.$transaction([
       prisma.post.findMany({
         where,
@@ -11,6 +11,7 @@ export const postRepository = {
         take: limit,
         include: {
           user: { select: { id: true, name: true, avatar: true } },
+          likes: userId ? { where: { userId }, select: { userId: true } } : false,
           _count: { select: { likes: true, comments: true } },
         },
       }),
@@ -19,11 +20,12 @@ export const postRepository = {
     return { items, total };
   },
 
-  async findById(id) {
+  async findById(id, userId) {
     return prisma.post.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, name: true, avatar: true } },
+        likes: userId ? { where: { userId }, select: { userId: true } } : false,
         _count: { select: { likes: true, comments: true } },
       },
     });
@@ -32,7 +34,23 @@ export const postRepository = {
   async create(data) {
     return prisma.post.create({
       data,
-      include: { user: { select: { id: true, name: true, avatar: true } } },
+      include: {
+        user: { select: { id: true, name: true, avatar: true } },
+        likes: { where: { userId: data.userId }, select: { userId: true } },
+        _count: { select: { likes: true, comments: true } },
+      },
+    });
+  },
+
+  async update(id, data, userId) {
+    return prisma.post.update({
+      where: { id },
+      data,
+      include: {
+        user: { select: { id: true, name: true, avatar: true } },
+        likes: userId ? { where: { userId }, select: { userId: true } } : false,
+        _count: { select: { likes: true, comments: true } },
+      },
     });
   },
 

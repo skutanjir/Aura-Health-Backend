@@ -9,33 +9,49 @@ import { v4 as uuidv4 } from 'uuid';
 
 const FEED_CACHE_TTL = 60 * 2; // 2 minutes
 
+function formatPost(post, currentUserId) {
+  const isOwnPost = currentUserId != null && post.userId === currentUserId;
+  const isAnonymous = post.isAnonymous && !isOwnPost;
+  return {
+    ...post,
+    imageUrl: post.image,
+    authorId: isAnonymous ? null : post.userId,
+    authorName: isAnonymous ? 'Anonim' : post.user?.name,
+    authorAvatar: isAnonymous ? null : post.user?.avatar,
+    likesCount: post._count?.likes ?? 0,
+    commentsCount: post._count?.comments ?? 0,
+    isLiked: currentUserId ? post.likes?.some((like) => like.userId === currentUserId) ?? false : false,
+    isOwnPost,
+  };
+}
+
 export const postService = {
-  async getFeed({ page = 1, limit = 10 } = {}) {
-    const cacheKey = REDIS_KEYS.postFeed(page);
-    const cached = await safeRedisGet(cacheKey);
+  async getFeed({ page = 1, limit = 10, userId } = {}) {
+    const cacheKey = userId ? null : REDIS_KEYS.postFeed(page);
+    const cached = cacheKey ? await safeRedisGet(cacheKey) : null;
     if (cached) return JSON.parse(cached);
 
-    const { items, total } = await postRepository.findMany({ page, limit });
+    const { items, total } = await postRepository.findMany({ page, limit, userId });
     const result = {
-      posts: items,
+      posts: items.map((post) => formatPost(post, userId)),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
 
-    await safeRedisSetex(cacheKey, FEED_CACHE_TTL, JSON.stringify(result));
+    if (cacheKey) await safeRedisSetex(cacheKey, FEED_CACHE_TTL, JSON.stringify(result));
     return result;
   },
 
-  async getPostById(id) {
-    const post = await postRepository.findById(id);
+  async getPostById(id, userId) {
+    const post = await postRepository.findById(id, userId);
     if (!post) {
       const err = new Error('Post tidak ditemukan');
       err.statusCode = 404;
       throw err;
     }
-    return post;
+    return formatPost(post, userId);
   },
 
-  async createPost(userId, { content }, file) {
+  async createPost(userId, { content, isAnonymous = false }, file) {
     let imageUrl = null;
 
     if (file) {
@@ -45,7 +61,7 @@ export const postService = {
       imageUrl = await uploadToSupabase(env.SUPABASE_BUCKET_POSTS, path, file.buffer, file.mimetype);
     }
 
-    const post = await postRepository.create({ userId, content, image: imageUrl });
+    const post = await postRepository.create({ userId, content, image: imageUrl, isAnonymous });
 
     // Invalidate feed cache
     if (isRedisAvailable()) {
@@ -55,7 +71,27 @@ export const postService = {
       } catch {}
     }
 
-    return post;
+    return formatPost(post, userId);
+  },
+
+  async updatePost(postId, userId, { content }) {
+    const post = await postRepository.findByIdAndUserId(postId, userId);
+    if (!post) {
+      const err = new Error('Post tidak ditemukan atau bukan milik Anda');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    const updated = await postRepository.update(postId, { content }, userId);
+
+    if (isRedisAvailable()) {
+      try {
+        const keys = await getRedis().keys('feed:*');
+        if (keys.length) await getRedis().del(...keys);
+      } catch {}
+    }
+
+    return formatPost(updated, userId);
   },
 
   async deletePost(postId, userId) {

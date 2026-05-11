@@ -4,9 +4,9 @@ import { safeRedisGet, safeRedisSetex, safeRedisDel, getRedis, isRedisAvailable,
 
 const CACHE_TTL = 60 * 60;
 
-const OFF_TOPIC_REPLY = 'Hehe, itu di luar bidang aku nih 😅 Aku lebih jago soal TBC dan kesehatan paru-paru. Ada yang mau ditanyain soal itu?';
-const INJECTION_REPLY = 'Wah, permintaan ini nggak bisa aku proses ya 🙏 Aku cuma bisa bantu seputar TBC dan kesehatan paru-paru.';
-const NO_LOCATION_HOSPITAL_REPLY = '🏥 Untuk cari rumah sakit atau klinik terdekat, aku butuh akses lokasi kamu dulu ya! Aktifkan GPS di aplikasi, lalu tanya lagi — aku siap bantu cariin yang paling dekat. Atau langsung cek di: https://www.google.com/maps/search/rumah+sakit+terdekat 😊';
+const OFF_TOPIC_REPLY = 'Maaf, aku hanya bisa membantu topik kesehatan, TBC, paru-paru, dan keluhan kesehatan umum.';
+const INJECTION_REPLY = 'Maaf, permintaan itu tidak bisa aku proses. Aku hanya bisa membantu seputar kesehatan.';
+const NO_LOCATION_HOSPITAL_REPLY = 'Untuk mencari rumah sakit atau klinik terdekat, aktifkan lokasi terlebih dahulu lalu tanya lagi. Aku akan membantu memberi arahan yang sesuai.';
 
 export const chatService = {
   async chat(userId, rawMessage, location = null) {
@@ -41,12 +41,17 @@ export const chatService = {
 
     const record = await chatRepository.create({ userId, message: safeMessage, response });
 
-    await safeRedisDel(REDIS_KEYS.chatHistory(userId));
+    if (isRedisAvailable()) {
+      try {
+        const keys = await getRedis().keys(`${REDIS_KEYS.chatHistory(userId)}*`);
+        if (keys.length) await getRedis().del(...keys);
+      } catch {}
+    }
 
     return { response, id: record.id, filtered: false };
   },
 
-  async getHistory(userId, { page = 1, limit = 20 } = {}) {
+  async getHistory(userId, { page = 1, limit = 1000 } = {}) {
     const cacheKey = `${REDIS_KEYS.chatHistory(userId)}:${page}`;
     const cached = await safeRedisGet(cacheKey);
     if (cached) return JSON.parse(cached);

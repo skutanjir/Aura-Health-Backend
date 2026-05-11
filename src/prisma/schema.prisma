@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../node_modules/.prisma/client"
+  provider      = "prisma-client-js"
+  output        = "../../node_modules/.prisma/client"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -21,6 +22,7 @@ model User {
   posts         Post[]
   comments      Comment[]
   likes         Like[]
+  articleLikes  ArticleLike[]
   notifications Notification[]
   chatHistories ChatHistory[]
 
@@ -36,10 +38,26 @@ model Article {
   category    String
   author      String
   publishedAt DateTime @default(now())
+  likesCount  Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  articleLikes ArticleLike[]
+
   @@map("articles")
+}
+
+model ArticleLike {
+  id        String   @id @default(uuid())
+  articleId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, userId])
+  @@map("article_likes")
 }
 
 model EducationContent {
@@ -60,6 +78,7 @@ model Post {
   userId    String
   content   String
   image     String?
+  isAnonymous Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

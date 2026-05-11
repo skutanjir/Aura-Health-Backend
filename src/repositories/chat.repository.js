@@ -1,7 +1,7 @@
 import { prisma } from '../config/db.js';
 
 export const chatRepository = {
-  async findByUserId(userId, { page = 1, limit = 20 } = {}) {
+  async findByUserId(userId, { page = 1, limit = 1000 } = {}) {
     const [items, total] = await prisma.$transaction([
       prisma.chatHistory.findMany({
         where: { userId },

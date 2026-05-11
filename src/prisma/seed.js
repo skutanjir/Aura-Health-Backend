@@ -52,36 +52,7 @@ async function main() {
     });
   }
 
-  // Seed sample articles
-  const articleData = [
-    {
-      title: 'Mengenal TBC: Penyakit Lama yang Masih Jadi Ancaman',
-      content: 'Tuberkulosis masih menjadi salah satu penyakit menular paling mematikan di dunia...',
-      summary: 'TBC masih menjadi ancaman kesehatan global yang perlu diwaspadai.',
-      category: 'Edukasi',
-      author: 'Tim Aura Health',
-    },
-    {
-      title: '6 Tanda Anda Harus Segera Periksa TBC',
-      content: 'Deteksi dini TBC sangat penting untuk keberhasilan pengobatan...',
-      summary: 'Kenali tanda-tanda TBC sejak dini untuk penanganan yang lebih baik.',
-      category: 'Gejala',
-      author: 'Tim Aura Health',
-    },
-    {
-      title: 'Mitos dan Fakta Seputar TBC',
-      content: 'Masih banyak mitos yang beredar di masyarakat tentang TBC...',
-      summary: 'Luruskan pemahaman Anda tentang TBC dengan fakta yang benar.',
-      category: 'Edukasi',
-      author: 'Tim Aura Health',
-    },
-  ];
-
-  for (const data of articleData) {
-    await prisma.article.create({ data }).catch(() => {});
-  }
-
-  console.log('✅ Seed completed');
+  console.log('✅ Seed completed (education data only). Run node src/scripts/seed_articles.js for articles.');
 }
 
 main()
